@@ -84,7 +84,7 @@ contract Lottery {
             return address(0);
         }
 
-        uint256 winnerNumber = totalShares % luckyNumber;
+        uint256 winnerNumber = luckyNumber % totalShares;
 
         for (uint256 i = 0; i < entrants.length; i++) {
             address entrant = entrants[i];
