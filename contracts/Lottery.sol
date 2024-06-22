@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract Lottery {
-    struct Entrant {
-        bytes signature;
-        uint256 deposited;
+    struct Ticket {
+        uint256 value;
         bool revealed;
+        bytes signature;
     }
 
     event LotteryEntered(address entrant, uint256 deposited);
@@ -24,37 +24,52 @@ contract Lottery {
     uint256 public entrantCount;
     uint256 public revealCount;
 
-    mapping(address => Entrant) public entrants;
+    mapping(address =>  Ticket) public tickets;
+    address[] public entrants;
 
     constructor() {
         enterDeadline = block.timestamp + 1 days;
-        revealDeadline = enterDeadline + 1 days;
     }
 
     function enter(bytes calldata signature) external payable {
         require(block.timestamp < enterDeadline, "The lottery is closed for new entrants");
-        require(entrants[msg.sender].deposited == 0, "You have already entered the lottery");
+        require(entrants[msg.sender].value == 0, "You have already entered the lottery");
         require(msg.value >= 0.01 ether, "You must deposit at least 0.01 ether to enter the lottery");
 
-        entrants[msg.sender] = Entrant({
-            signature: signature,
-            deposited: msg.value,
-            revealed: false
+        tickets[msg.sender] = Ticket({
+            value: msg.value,
+            revealed: false,
+            signature: signature
         });
+
+        entrants.push(msg.sender);
 
         emit LotteryEntered(msg.sender, msg.value);
     }
 
-    function reveal(uint256 numberToReveal, bytes calldata signature) external {
-        // Uncomment this line, and the import of "hardhat/console.sol", to print a log in your terminal
-        // console.log("Unlock time is %o and block timestamp is %o", unlockTime, block.timestamp);
+    function reveal(uint256 numberToReveal) external {
+        require(block.timestamp >= enterDeadline, "The lottery is still open for entrants");
 
-//        require(block.timestamp >= unlockTime, "You can't withdraw yet");
-//        require(msg.sender == owner, "You aren't the owner");
-//
-//        emit Withdrawal(address(this).balance, block.timestamp);
-//
-//        owner.transfer(address(this).balance);
+        // If this is the first reveal, set the reveal deadline
+        if (revealDeadline == 0) {
+            revealDeadline = block.timestamp + 1 days;
+        }
+
+        require(block.timestamp < revealDeadline, "The lottery has ended");
+
+        Ticket memory ticket = tickets[msg.sender];
+
+        require(ticket.value > 0, "You have not entered the lottery");
+        require(!ticket.revealed, "You have already revealed your lucky number");
+        require(isValidLuckyNumber(msg.sender, numberToReveal, ticket.signature), "Invalid signature for lucky number");
+
+        ticket.revealed = true;
+
+        tickets[msg.sender] = ticket;
+        totalShares += ticket.value;
+        revealCount++;
+
+        emit NumberRevealed(msg.sender, numberToReveal);
     }
 
     function isValidLuckyNumber(address entrant, uint256 number, bytes calldata signature) public view returns (bool) {
