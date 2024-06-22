@@ -15,13 +15,19 @@ contract Lottery {
     event LotteryEntered(address entrant, uint256 deposited);
     event NumberRevealed(address entrant, uint256 number);
 
+    /// @dev The deadline for entering the lottery. Deadline is 1 day after contract creation.
     uint256 public immutable enterDeadline;
-    uint256 public immutable revealDeadline;
 
+    /// @dev The deadline for revealing lucky numbers. Deadline is 1 day after the first reveal.
+    uint256 public revealDeadline;
+
+    /// @dev The XOR of all lucky numbers revealed by entrants. Used to determine the winner.
     uint256 public luckyNumber;
+
+    /// @dev The total amount of ether deposited by entrants who have revealed their lucky number.
     uint256 public totalShares;
 
-    uint256 public entrantCount;
+    /// @dev The number of entrants who have revealed their lucky number. Used to end the lottery before the reveal deadline.
     uint256 public revealCount;
 
     mapping(address =>  Ticket) public tickets;
@@ -33,7 +39,7 @@ contract Lottery {
 
     function enter(bytes calldata signature) external payable {
         require(block.timestamp < enterDeadline, "The lottery is closed for new entrants");
-        require(entrants[msg.sender].value == 0, "You have already entered the lottery");
+        require(tickets[msg.sender].value == 0, "You have already entered the lottery");
         require(msg.value >= 0.01 ether, "You must deposit at least 0.01 ether to enter the lottery");
 
         tickets[msg.sender] = Ticket({
@@ -68,11 +74,35 @@ contract Lottery {
         tickets[msg.sender] = ticket;
         totalShares += ticket.value;
         revealCount++;
+        luckyNumber ^= numberToReveal;
 
         emit NumberRevealed(msg.sender, numberToReveal);
     }
 
-    function isValidLuckyNumber(address entrant, uint256 number, bytes calldata signature) public view returns (bool) {
+    function winner() public view returns (address) {
+        if(revealCount != entrants.length && block.timestamp < revealDeadline) {
+            return address(0);
+        }
+
+        uint256 winnerNumber = totalShares % luckyNumber;
+
+        for (uint256 i = 0; i < entrants.length; i++) {
+            address entrant = entrants[i];
+            Ticket memory ticket = tickets[entrant];
+
+            if (ticket.revealed) {
+                if (winnerNumber < ticket.value) {
+                    return entrant;
+                }
+
+                winnerNumber -= ticket.value;
+            }
+        }
+
+        return entrants[luckyNumber % entrants.length];
+    }
+
+    function isValidLuckyNumber(address entrant, uint256 number, bytes memory signature) public view returns (bool) {
         bytes32 hash = MessageHashUtils.toEthSignedMessageHash(
             bytes.concat("My lucky number is ", bytes(Strings.toString(number)))
         );
