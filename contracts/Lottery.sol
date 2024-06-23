@@ -102,6 +102,16 @@ contract Lottery {
         return entrants[luckyNumber % entrants.length];
     }
 
+    function claim() external {
+        address winnerAddress = winner();
+
+        require(winnerAddress != address(0), "The winner has not been determined");
+        require(winnerAddress == msg.sender, "You are not the winner");
+
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        require(success, "Failed to send ether to the winner");
+    }
+
     function isValidLuckyNumber(address entrant, uint256 number, bytes memory signature) public view returns (bool) {
         bytes32 hash = MessageHashUtils.toEthSignedMessageHash(
             bytes.concat("My lucky number is ", bytes(Strings.toString(number)))

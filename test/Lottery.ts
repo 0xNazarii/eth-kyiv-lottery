@@ -2,8 +2,7 @@ import {
   time,
   loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-import { expect } from "chai";
+import {expect} from "chai";
 import hre from "hardhat";
 import {Lottery} from "../typechain-types";
 import {ethers, Wallet} from "ethers";
@@ -15,7 +14,7 @@ describe("Lottery", function () {
     const Lottery = await hre.ethers.getContractFactory("Lottery");
     const lottery = await Lottery.deploy();
 
-    return { lottery, user1, user2, user3, otherAccount };
+    return {lottery, user1, user2, user3, otherAccount};
   }
 
   describe.skip("isValidLuckyNumber", function () {
@@ -23,7 +22,7 @@ describe("Lottery", function () {
     const message = `My lucky number is ${luckyNumber}`;
 
     it("should return `true` for valid signatures", async function () {
-      const { lottery, user1 } = await loadFixture(deploy);
+      const {lottery, user1} = await loadFixture(deploy);
 
       const signature = await user1.signMessage(message);
       const isValid = await lottery.isValidLuckyNumber(user1.address, luckyNumber, signature);
@@ -32,7 +31,7 @@ describe("Lottery", function () {
     });
 
     it("should return `false` for invalid signatures", async function () {
-      const { lottery, user1 } = await loadFixture(deploy);
+      const {lottery, user1} = await loadFixture(deploy);
 
       const wrongLuckyNumber = 43;
 
@@ -53,8 +52,10 @@ describe("Lottery", function () {
     const user3Amount = ethers.parseEther('6');
 
     it('should have a change to win proportional to value deposited', async () => {
+      const [user1, user2, user3, otherAccount] = await hre.ethers.getSigners();
+
       for (let i = 0; i < runs; i++) {
-        const { lottery, user1, user2, user3 } = await loadFixture(deploy);
+        const {lottery} = await loadFixture(deploy);
 
         const user1LuckyNumber = BigInt(Wallet.createRandom().address).toString();
         const user2LuckyNumber = BigInt(Wallet.createRandom().address).toString();
@@ -64,9 +65,9 @@ describe("Lottery", function () {
         const user2Signature = await user2.signMessage(`My lucky number is ${user2LuckyNumber}`);
         const user3Signature = await user3.signMessage(`My lucky number is ${user3LuckyNumber}`);
 
-        await lottery.connect(user1).enter(user1Signature, { value: user1Amount });
-        await lottery.connect(user2).enter(user2Signature, { value: user2Amount });
-        await lottery.connect(user3).enter(user3Signature, { value: user3Amount });
+        await lottery.connect(user1).enter(user1Signature, {value: user1Amount});
+        await lottery.connect(user2).enter(user2Signature, {value: user2Amount});
+        await lottery.connect(user3).enter(user3Signature, {value: user3Amount});
 
         await time.increaseTo(await lottery.enterDeadline() + 2n * 60n * 60n);
 
@@ -78,7 +79,6 @@ describe("Lottery", function () {
 
         winners[winner] = (winners[winner] || 0) + 1;
       }
-      const [user1, user2, user3, otherAccount] = await hre.ethers.getSigners();
 
       console.log({
         user1: winners[user1.address],
